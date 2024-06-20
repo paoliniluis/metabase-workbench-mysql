@@ -23,9 +23,9 @@ This repository has Metabase running with MySQL as the application database and 
 
 ## How to run
 
-Install docker + do a `docker compose run --build`
+Install docker + do a `docker compose up --build`
 
 ### Need to change the Metabase version?
 
-Just change the version on the metabase container, wipe the mysql-data folder and just do again `docker compose run --build`
+Just change the version on the metabase container, wipe the mysql-data folder and just do again `docker compose up --build`
 

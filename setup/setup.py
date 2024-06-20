@@ -32,15 +32,15 @@ mysql_data_1 = {
     'name':'mysql-data1',
     'details': {
         'host':'mysql-data1',
-        'port':'5432',
+        'port':'3306',
         'dbname':'sample',
-        'user':'root',
+        'user':'metabase',
         'password':'metasample123',
         'schema-filters-type':'all',
         'ssl':False,
         'tunnel-enabled':False,
         'advanced-options':True,
-        # 'additional-options': 'trustServerCertificate=true'
+        'additional-options': 'trustServerCertificate=true'
     },
     'is_full_sync':True
 }

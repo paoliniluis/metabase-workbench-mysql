@@ -78,8 +78,7 @@
               }
             ]
           },
-          "unit": "percentunit",
-          "unitScale": true
+          "unit": "percentunit"
         },
         "overrides": []
       },
@@ -98,6 +97,7 @@
           "showLegend": false
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -121,7 +121,6 @@
         }
       ],
       "title": "CPU usage",
-      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -181,8 +180,7 @@
               }
             ]
           },
-          "unit": "bytes",
-          "unitScale": true
+          "unit": "bytes"
         },
         "overrides": []
       },
@@ -201,6 +199,7 @@
           "showLegend": false
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -224,7 +223,6 @@
         }
       ],
       "title": "Memory usage",
-      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -282,8 +280,7 @@
                 "value": 80
               }
             ]
-          },
-          "unitScale": true
+          }
         },
         "overrides": []
       },
@@ -302,6 +299,7 @@
           "showLegend": false
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -326,7 +324,6 @@
         }
       ],
       "title": "File descriptors",
-      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -384,8 +381,7 @@
                 "value": 15
               }
             ]
-          },
-          "unitScale": true
+          }
         },
         "overrides": []
       },
@@ -404,6 +400,7 @@
           "showLegend": true
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -429,7 +426,6 @@
         }
       ],
       "title": "Connections",
-      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -490,8 +486,7 @@
                 "value": 50
               }
             ]
-          },
-          "unitScale": true
+          }
         },
         "overrides": []
       },
@@ -510,6 +505,7 @@
           "showLegend": true
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -535,7 +531,6 @@
         }
       ],
       "title": "Threads by state",
-      "transformations": [],
       "type": "timeseries"
     },
     {
@@ -593,13 +588,12 @@
                 "value": 80
               }
             ]
-          },
-          "unitScale": true
+          }
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 5,
         "w": 24,
         "x": 0,
         "y": 7
@@ -613,6 +607,7 @@
           "showLegend": true
         },
         "tooltip": {
+          "maxHeight": 600,
           "mode": "single",
           "sort": "none"
         }
@@ -687,38 +682,112 @@
         }
       ],
       "title": "Jetty stats",
-      "transformations": [],
       "type": "timeseries"
     },
     {
       "datasource": {
-        "type": "grafana-pyroscope-datasource",
-        "uid": "pyroscope"
+        "type": "tempo",
+        "uid": "tempo"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 7,
+        "w": 24,
         "x": 0,
-        "y": 14
+        "y": 12
       },
-      "id": 5,
+      "id": 15,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 1,
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "grafana-pyroscope-datasource",
-            "uid": "pyroscope"
+            "type": "tempo",
+            "uid": "tempo"
           },
-          "groupBy": [],
-          "labelSelector": "{service_name=\"metabase\"}",
-          "profileTypeId": "memory:alloc_in_new_tlab_bytes:bytes:space:bytes",
-          "queryType": "profile",
+          "filters": [
+            {
+              "id": "b94ad4a6",
+              "operator": "=~",
+              "scope": "span",
+              "value": []
+            },
+            {
+              "id": "service-name",
+              "operator": "=",
+              "scope": "resource",
+              "tag": "service.name",
+              "value": [
+                "metabase"
+              ],
+              "valueType": "string"
+            },
+            {
+              "id": "span-name",
+              "operator": "=~",
+              "scope": "span",
+              "tag": "name",
+              "value": [
+                "GET",
+                "POST",
+                "PUT"
+              ],
+              "valueType": "string"
+            }
+          ],
+          "groupBy": [
+            {
+              "id": "d4bc16dd",
+              "scope": "span"
+            }
+          ],
+          "key": "Q-d52c8c6a-cd33-47db-9e27-124c61411af7-0",
+          "limit": 20,
+          "queryType": "traceqlSearch",
           "refId": "A",
-          "spanSelector": []
+          "spss": 3,
+          "tableType": "spans"
         }
       ],
-      "title": "RAM consumption",
-      "transformations": [],
-      "type": "flamegraph"
+      "title": "Spans",
+      "type": "table"
     },
     {
       "datasource": {
@@ -728,9 +797,9 @@
       "description": "",
       "gridPos": {
         "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 14
+        "w": 24,
+        "x": 0,
+        "y": 19
       },
       "id": 4,
       "targets": [
@@ -749,7 +818,35 @@
         }
       ],
       "title": "CPU time",
-      "transformations": [],
+      "type": "flamegraph"
+    },
+    {
+      "datasource": {
+        "type": "grafana-pyroscope-datasource",
+        "uid": "pyroscope"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "id": 5,
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-pyroscope-datasource",
+            "uid": "pyroscope"
+          },
+          "groupBy": [],
+          "labelSelector": "{service_name=\"metabase\"}",
+          "profileTypeId": "memory:alloc_in_new_tlab_bytes:bytes:space:bytes",
+          "queryType": "profile",
+          "refId": "A",
+          "spanSelector": []
+        }
+      ],
+      "title": "RAM consumption",
       "type": "flamegraph"
     },
     {
@@ -761,7 +858,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 36
       },
       "id": 11,
       "targets": [
@@ -779,7 +876,6 @@
         }
       ],
       "title": "Mutex waits",
-      "transformations": [],
       "type": "flamegraph"
     },
     {
@@ -791,7 +887,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 36
       },
       "id": 12,
       "targets": [
@@ -809,7 +905,6 @@
         }
       ],
       "title": "Mutex contentions",
-      "transformations": [],
       "type": "flamegraph"
     },
     {
@@ -822,7 +917,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 44
       },
       "id": 2,
       "options": {
@@ -848,105 +943,7 @@
         }
       ],
       "title": "Logs",
-      "transformations": [],
       "type": "logs"
-    },
-    {
-      "datasource": {
-        "type": "tempo",
-        "uid": "tempo"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "filterable": false,
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unitScale": true
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 39
-      },
-      "id": 3,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "enablePagination": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "frameIndex": 1,
-        "showHeader": true
-      },
-      "pluginVersion": "10.3.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "tempo",
-            "uid": "tempo"
-          },
-          "filters": [
-            {
-              "id": "6313c040",
-              "operator": "=",
-              "scope": "span"
-            },
-            {
-              "id": "service-name",
-              "operator": "=",
-              "scope": "resource",
-              "tag": "service.name",
-              "value": [
-                "metabase"
-              ],
-              "valueType": "string"
-            }
-          ],
-          "groupBy": [
-            {
-              "id": "fcaeca45",
-              "scope": "span"
-            }
-          ],
-          "key": "Q-6ee1bac8-9e46-476a-8cda-391b61b5682e-0",
-          "limit": 20,
-          "queryType": "traceqlSearch",
-          "refId": "A",
-          "tableType": "traces"
-        }
-      ],
-      "title": "Traces",
-      "transformations": [],
-      "type": "table"
     }
   ],
   "refresh": "",
@@ -956,9 +953,10 @@
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-1h",
     "to": "now"
   },
+  "timeRangeUpdatedDuringEditOrView": false,
   "timepicker": {
     "refresh_intervals": [
       "5s",
@@ -974,6 +972,6 @@
   "timezone": "",
   "title": "Main",
   "uid": "b25acd9d-6273-43b2-b6f2-e637833f597b",
-  "version": 5,
+  "version": 3,
   "weekStart": ""
 }
