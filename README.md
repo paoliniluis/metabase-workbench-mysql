@@ -20,6 +20,7 @@ This repository has Metabase running with MySQL as the application database and 
 - Maildev: just an email server
 - Commented out singlestore: just to test this engine
 - MySQL Prometheus exporter: currently getting metrics out of the App DB, but you can add any other exporter to test other DBs in the stack
+- Pyroscope: capture the actual telemetry of the functions in the app
 
 ## How to run
 
@@ -29,3 +30,10 @@ Install docker + do a `docker compose up --build`
 
 Just change the version on the metabase container, wipe the mysql-data folder and just do again `docker compose up --build`
 
+## Pre-loaded dashboards
+
+- Main: metabase application dashboard
+- MySQL general
+- MySQL InnoDB
+
+(thanks Percona team for those 2 dashboards)
