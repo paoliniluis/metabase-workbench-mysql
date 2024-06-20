@@ -12,3 +12,25 @@ providers:
     options:
       path: /etc/grafana/provisioning/dashboards/main
       foldersFromFilesStructure: true
+  - name: 'mysql general'
+    orgId: 1
+    folder: ''
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/mysql-overview
+      foldersFromFilesStructure: true
+  - name: 'innodb performance'
+    orgId: 1
+    folder: ''
+    folderUid: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/innodb
+      foldersFromFilesStructure: true
