@@ -1,0 +1,421 @@
+services:
+  nginx:
+    image: nginx:1.27-alpine-otel
+    hostname: nginx
+    container_name: nginx
+    volumes: 
+      - $PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - $PWD/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - $PWD/nginx/certs/:/etc/nginx/conf.d/certs/
+    networks:
+      - metanet1-mysql
+    ports:
+      - 8443:443
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+        reservations:
+          cpus: '0.5'
+          memory: 32M
+    depends_on:
+      metabase-mysql1:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -O /dev/null http://localhost || exit 1"]
+      timeout: 10s
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.2.0
+    networks:
+      - metanet1-mysql
+    container_name: nginx-exporter
+    hostname: nginx-exporter
+    command: --nginx.scrape-uri=http://nginx/status
+    depends_on:
+      nginx:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+        reservations:
+          cpus: '0.5'
+          memory: 32M
+  mysql-prom-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    hostname: mysql-prom-exporter
+    container_name: mysql-prom-exporter
+    networks:
+      - metanet1-mysql
+    command: --config.my-cnf=/tmp/my.cnf --mysqld.address=mysql-app-db:3306 --mysqld.username=metabase
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: mysecretpassword
+    depends_on:
+      mysql-app-db:
+        condition: service_healthy
+  pyroscope:
+    image: grafana/pyroscope:1.6.0
+    hostname: pyroscope
+    networks:
+      - metanet1-mysql
+    volumes:
+      - $PWD/pyroscope/config.yaml:/etc/pyroscope/config.yaml
+    depends_on:
+      grafana:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2048M
+        reservations:
+          cpus: '2'
+          memory: 2048M
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:4040/ready || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  metabase-mysql1:
+    build:
+      dockerfile: Dockerfile
+      context: runner/.
+      args:
+        version: v1.50.5
+    container_name: metabase-mysql1
+    hostname: metabase
+    volumes: 
+    - /dev/urandom:/dev/random:ro
+    - $PWD/metabase-mysql-certs:/app/certs
+    - $PWD/pyroscope/pyroscope.jar:/app/pyroscope/pyroscope.jar
+    - $PWD/otel/opentelemetry-javaagent.jar:/app/otel/opentelemetry-javaagent.jar
+    - $PWD/jmx-exporter:/app/jmx
+    - $PWD/logging_config:/metabase.db
+    ports:
+      - 3001:3000
+    environment:
+      MB_DB_CONNECTION_URI: "mysql://metabase:mysecretpassword@mysql-app-db:3306/metabase?allowPublicKeyRetrieval=true"
+      MB_SITE_URL: https://localhost:8443
+      MB_DB_TYPE: "mysql"
+      MB_EMAIL_SMTP_HOST: maildev-sub
+      MB_EMAIL_SMTP_PASSWORD: password
+      MB_EMAIL_SMTP_PORT: 1025
+      MB_EMAIL_SMTP_SECURITY: none
+      MB_EMAIL_SMTP_USERNAME: admin
+      JAVA_TOOL_OPTIONS: -Xms512m -Xmx1530m -javaagent:/app/pyroscope/pyroscope.jar -javaagent:/app/otel/opentelemetry-javaagent.jar -javaagent:/app/jmx/jmx_prometheus_javaagent-1.0.1.jar=3301:/app/jmx/config.yml -Dlog4j.configurationFile=file:/metabase.db/log4j2.xml
+      MB_PROMETHEUS_SERVER_PORT: 3300
+      PYROSCOPE_SERVER_ADDRESS: http://pyroscope:4040
+      PYROSCOPE_APPLICATION_NAME: metabase
+      PYROSCOPE_PROFILER_ALLOC: 524288
+      PYROSCOPE_PROFILER_LOCK: 10000
+      PYROSCOPE_FORMAT: jfr
+      OTEL_EXPORTER_OTLP_COMPRESSION: gzip
+      OTEL_EXPORTER_OTLP_INSECURE: true
+      OTEL_SERVICE_NAME: metabase
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+      OTEL_METRICS_EXPORTER: none
+      OTEL_EXPORTER_PROMETHEUS_PORT: 9090
+      OTEL_EXPORTER_PROMETHEUS_HOST: prometheus
+      OTEL_LOGS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      MB_SEND_EMAIL_ON_FIRST_LOGIN_FROM_NEW_DEVICE: false
+      MB_COLORIZE_LOGS: false
+      MB_EMOJI_IN_LOGS: false
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 3000M
+        reservations:
+          cpus: '2'
+          memory: 1500M
+    networks: 
+      - metanet1-mysql
+    healthcheck:
+      test: curl --fail -X GET -I http://localhost:3000/api/health || exit 1
+      interval: 15s
+      timeout: 30s
+      retries: 10
+  tempo:
+    image: grafana/tempo:2.5.0
+    hostname: tempo
+    container_name: tempo
+    networks:
+      - metanet1-mysql
+    volumes:
+      - $PWD/tempo/config.yaml:/etc/config.yaml
+    command: [ "-config.file=/etc/config.yaml" ]
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '2'
+          memory: 256M
+    depends_on:
+      grafana:
+        condition: service_healthy
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: prometheus
+    hostname: prometheus
+    networks:
+    - metanet1-mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 256M
+        reservations:
+          cpus: '1'
+          memory: 256M
+    volumes:
+      - $PWD/prometheus/prometheus.yml:/prometheus/prometheus.yml
+    command: --web.enable-remote-write-receiver
+  grafana:
+    image: grafana/grafana-oss:11.0.0
+    container_name: grafana
+    hostname: grafana
+    ports:
+      - 3030:3000
+    networks: 
+      - metanet1-mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '1'
+          memory: 256M
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: true
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: true
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor traceQLStreaming metricsSummary
+    volumes:
+      - $PWD/grafana/datasources/:/etc/grafana/provisioning/datasources/
+      - $PWD/grafana/dashboards/:/etc/grafana/provisioning/dashboards/
+      - $PWD/grafana/defaults.ini:/etc/grafana/grafana.ini
+    healthcheck:
+      test: curl --fail -X GET -I http://localhost:3000/api/health || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 3
+  api_bun:
+    build: api_bun/.
+    container_name: api_bun
+    hostname: api_bun
+    restart: always
+    networks: 
+      - metanet1-mysql
+    environment:
+      BUN_PORT: 3000
+      LOKI_HOST: http://loki:3100/loki/api/v1/push
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+        reservations:
+          cpus: '0.5'
+          memory: 32M
+  loki:
+    image: grafana/loki:3.0.0
+    hostname: loki
+    container_name: loki
+    networks:
+      - metanet1-mysql
+    healthcheck:
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3100/ready || exit 1" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3telemetry
+    volumes:
+      - $PWD/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 128M
+        reservations:
+          cpus: '2'
+          memory: 64M
+  proxysql:
+    image: proxysql/proxysql:2.6.0
+    container_name: proxysql
+    hostname: proxysql
+    volumes:
+      - $PWD/proxysql/proxysql.cnf:/etc/proxysql.cnf:ro
+    networks:
+    - metanet1-mysql
+    depends_on:
+      - mysql-data
+  mysql-app-db:
+    # image: mariadb:11.2.2
+    image: mysql:8.0.35
+    container_name: mysql-app-db
+    hostname: mysql-app-db
+    ports:
+      - 3306:3306
+    environment:
+      - "MYSQL_ROOT_PASSWORD=mysecretpassword"
+      - "MYSQL_USER=metabase"
+      - "MYSQL_PASSWORD=mysecretpassword"
+      - "MYSQL_DATABASE=metabase"
+    volumes:
+      - $PWD/mysql-data:/var/lib/mysql
+      - $PWD/mysql-app-db-config/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    # command: ['--default-authentication-plugin=mysql_native_password', '--mysqlx=0']
+    # command: ['--default-authentication-plugin=mysql_native_password']
+    networks: 
+      - metanet1-mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 16384M
+        reservations:
+          cpus: '2'
+          memory: 16384M
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+  mysql-data2:
+    image: mysql:8.0.35
+    container_name: mysql-data2
+    hostname: mysql-data2
+    ports:
+      - 3309:3306
+    environment:
+      - "MYSQL_ROOT_PASSWORD=mysecretpassword"
+      - "MYSQL_USER=metabase"
+      - "MYSQL_PASSWORD=mysecretpassword"
+      - "MYSQL_DATABASE=metabase"
+    volumes:
+      - $PWD/mysql-config/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks: 
+      - metanet1-mysql
+  mysql-ssl:
+    image: mysql:8.0.35
+    container_name: mysql-ssl
+    hostname: mysql-ssl
+    ports:
+      - 3310:3306
+    environment:
+      - "MYSQL_ROOT_PASSWORD=mysecretpassword"
+      - "MYSQL_USER=metabase"
+      - "MYSQL_PASSWORD=mysecretpassword"
+      - "MYSQL_DATABASE=metabase"
+    volumes:
+      - $PWD/mysql-ssl-conf:/var/lib/mysql
+    networks: 
+      - metanet1-mysql
+    command: --auto_generate_certs
+  setup-mysql:
+    build: setup/.
+    container_name: setup
+    volumes:
+      - $PWD/setup/setup.py:/app/setup.py
+    networks:
+      - metanet1-mysql
+    depends_on:
+      metabase-mysql1:
+        condition: service_healthy
+    command: python /app/setup.py
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+        reservations:
+          cpus: '0.5'
+          memory: 32M
+    environment:
+      host: http://metabase-mysql1
+      port: 3000
+      dbs: 1
+  # openssh-server-choke:
+  #   image: lscr.io/linuxserver/openssh-server:version-8.8_p1-r1
+  #   container_name: ssh-choke
+  #   hostname: ssh-choke
+  #   environment:
+  #     - PUBLIC_KEY_FILE=/root/.ssh/id_ed25519.pub
+  #     - USER_NAME=metabase
+  #   volumes:
+  #     - $PWD/ssh/sshd_config:/config/ssh_host_keys/sshd_config
+  #     - $PWD/ssh/keys/:/root/.ssh/
+  #   networks: 
+  #     - metanet1-mysql
+  #   ports:
+  #     - 2222:2222
+  #   command: -p 22
+  # mariadb-data:
+  #   build: .
+  #   container_name: mariadb-data1
+  #   hostname: mariadb-data1
+  #   ports:
+  #     - 3307:3306
+  #   networks: 
+  #     - metanet1-mysql
+  #   volumes:
+  #     - $PWD/mariadb-config/my.cnf:/etc/mariadb/conf.d/my.cnf:ro
+  #   healthcheck:
+  #     test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+  #     timeout: 20s
+  #     retries: 10
+  mysql-data:
+    image: metabase/qa-databases:mysql-sample-8
+    container_name: mysql-data1
+    hostname: mysql-data1
+    ports:
+      - 3308:3306
+    networks: 
+      - metanet1-mysql
+    volumes:
+      - $PWD/mysql-config/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+  maildev-sub-postgres:
+    image: maildev/maildev:2.1.0
+    container_name: maildev-sub-postgres
+    hostname: maildev-sub
+    ports:
+    - "3003:1080"
+    networks:
+    - metanet1-mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 64M
+        reservations:
+          cpus: '0.5'
+          memory: 32M
+  # singlestore:
+  #   image: ghcr.io/singlestore-labs/singlestoredb-dev:latest
+  #   ports:
+  #     - 3309:3306
+  #     - 8080:8080
+  #   networks:
+  #   - metanet1-mysql
+  #   volumes:
+  #     - $PWD/data/init.sql:/init.sql
+  #   environment:
+  #     SINGLESTORE_LICENSE: ""
+  #     ROOT_PASSWORD: "metasample123"
+networks: 
+  metanet1-mysql:
+    driver: bridge
